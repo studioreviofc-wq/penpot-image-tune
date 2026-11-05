@@ -13,3 +13,5 @@ Non-destructive photo adjustments for image fills in Penpot, with live GPU previ
 - Runs 100% in the browser (WebGL) · English, Português, Español
 
 Made by Studio REVI.
+
+Source code: `docs/` (served by GitHub Pages).
