@@ -1,0 +1,8 @@
+{
+  "name": "Image Tune",
+  "description": "Non-destructive photo adjustments for image fills: exposure, contrast, highlights, shadows, temperature, tint, saturation, sharpness, vignette, grain and presets.",
+  "code": "plugin.js",
+  "icon": "icon.svg",
+  "version": 2,
+  "permissions": ["content:read", "content:write"]
+}

@@ -1,0 +1,741 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Image Tune</title>
+<style>
+  :root {
+    --bg: #18191b; --panel: #212426; --line: #2e3434; --text: #e8eaee;
+    --muted: #8f9da3; --accent: #31efb8; --accent-text: #18191b; --danger: #ff6b6b;
+  }
+  [data-theme="light"] {
+    --bg: #ffffff; --panel: #f3f4f6; --line: #e1e3e6; --text: #000000;
+    --muted: #6b7277; --accent: #6911d4; --accent-text: #ffffff; --danger: #d32f2f;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 12px/1.4 "Work Sans", system-ui, -apple-system, Segoe UI, sans-serif; }
+  main { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+  h2 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--muted); margin: 0; }
+  .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  select, .btn { background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 6px; font: inherit; }
+  select { padding: 3px 6px; font-size: 11px; cursor: pointer; }
+  .btn { padding: 7px 8px; cursor: pointer; }
+  .btn:hover:not(:disabled) { border-color: var(--muted); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .link { background: none; border: 0; color: var(--muted); font: inherit; font-size: 11px; cursor: pointer; padding: 0; }
+  .link:hover:not(:disabled) { color: var(--text); }
+  .link:disabled { opacity: .4; cursor: not-allowed; }
+  .preview { position: relative; height: 180px; border-radius: 8px; border: 1px solid var(--line); overflow: hidden;
+    background: repeating-conic-gradient(var(--panel) 0 25%, var(--bg) 0 50%) 0 0 / 16px 16px;
+    display: flex; align-items: center; justify-content: center; }
+  .preview canvas { max-width: 100%; max-height: 100%; display: none; }
+  .preview .empty { color: var(--muted); text-align: center; padding: 0 16px; }
+  .pill { position: absolute; right: 6px; bottom: 6px; background: rgba(0,0,0,.6); color: #fff;
+    border-radius: 4px; padding: 2px 6px; font-size: 11px; display: none; }
+  #before { position: absolute; left: 6px; bottom: 6px; background: rgba(0,0,0,.6); color: #fff; border: 0;
+    border-radius: 4px; padding: 3px 8px; font: inherit; font-size: 11px; cursor: pointer; user-select: none; }
+  #before.on { background: var(--accent); color: var(--accent-text); }
+  .badge { position: absolute; left: 6px; top: 6px; background: rgba(0,0,0,.6); color: #fff;
+    border-radius: 4px; padding: 2px 6px; font-size: 10px; display: none; }
+  #histo { width: 100%; height: 44px; display: block; margin-top: 6px; border-radius: 6px; background: var(--panel); }
+  .looks { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+  .look { flex: 0 0 58px; background: none; border: 0; padding: 0; color: var(--muted); font: inherit; font-size: 10px;
+    cursor: pointer; text-align: center; }
+  .look canvas { width: 58px; height: 42px; border-radius: 6px; border: 2px solid transparent; display: block;
+    background: var(--panel); object-fit: cover; }
+  .look.on canvas { border-color: var(--accent); }
+  .look.on { color: var(--text); }
+  details { border-top: 1px solid var(--line); padding-top: 8px; }
+  details summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary h2::before { content: "▸ "; }
+  details[open] summary h2::before { content: "▾ "; }
+  details[open] summary { margin-bottom: 4px; }
+  .slider { display: flex; align-items: center; gap: 8px; height: 24px; }
+  .slider label { width: 82px; color: var(--muted); flex-shrink: 0; cursor: default; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; }
+  .slider output { width: 32px; text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; color: var(--muted); }
+  .slider.changed label, .slider.changed output { color: var(--text); }
+  input[type=range] { flex: 1; min-width: 0; -webkit-appearance: none; appearance: none; background: none; height: 16px; margin: 0; cursor: pointer; }
+  input[type=range]::-webkit-slider-runnable-track { height: 3px; border-radius: 2px; background: var(--line); }
+  input[type=range]::-moz-range-track { height: 3px; border-radius: 2px; background: var(--line); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; margin-top: -4.5px;
+    border-radius: 50%; background: var(--muted); border: 0; }
+  input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: var(--muted); border: 0; }
+  .slider.changed input[type=range]::-webkit-slider-thumb { background: var(--accent); }
+  .slider.changed input[type=range]::-moz-range-thumb { background: var(--accent); }
+  .looks::-webkit-scrollbar { height: 4px; }
+  .looks::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
+  .tools { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .seg button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px;
+    padding: 7px 4px; font: inherit; cursor: pointer; }
+  .seg button.on { border-color: var(--accent); color: var(--accent); }
+  .hint { color: var(--muted); font-size: 11px; margin-top: 4px; }
+  #apply { background: var(--accent); color: var(--accent-text); border: 0; border-radius: 8px;
+    padding: 10px; font: inherit; font-weight: 600; cursor: pointer; }
+  #apply:disabled { opacity: .45; cursor: not-allowed; }
+  .actions { display: flex; flex-direction: column; gap: 6px; }
+  #status { min-height: 16px; color: var(--muted); }
+  #status.err { color: var(--danger); }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <div class="head">
+      <h2 data-i18n="preview"></h2>
+      <select id="lang" aria-label="Language">
+        <option value="en">English</option>
+        <option value="pt">Português</option>
+        <option value="es">Español</option>
+      </select>
+    </div>
+    <div class="preview">
+      <canvas id="view"></canvas>
+      <div class="empty" id="empty"></div>
+      <div class="badge" id="badge" data-i18n="editedBadge"></div>
+      <button id="before" data-i18n="before" hidden></button>
+      <div class="pill" id="count"></div>
+    </div>
+    <canvas id="histo" width="592" height="88"></canvas>
+  </section>
+
+  <section>
+    <div class="head">
+      <h2 data-i18n="looks"></h2>
+      <div style="display:flex;gap:12px">
+        <button class="link" id="auto" data-i18n="auto" disabled></button>
+        <button class="link" id="reset" data-i18n="reset" disabled></button>
+      </div>
+    </div>
+    <div class="looks" id="looks"></div>
+  </section>
+
+  <div id="groups"></div>
+
+  <section>
+    <h2 style="margin-bottom:6px" data-i18n="mode"></h2>
+    <div class="seg" id="mode">
+      <button data-m="edit" class="on" data-i18n="modeEdit"></button>
+      <button data-m="replace" data-i18n="modeReplace"></button>
+    </div>
+    <div class="hint" id="modeHint"></div>
+  </section>
+
+  <div class="actions">
+    <button id="apply" disabled></button>
+    <div class="tools">
+      <button class="btn" id="copy" data-i18n="copy" disabled></button>
+      <button class="btn" id="paste" data-i18n="paste" disabled></button>
+    </div>
+    <button class="btn" id="restore" data-i18n="restore" disabled></button>
+  </div>
+  <div id="status"></div>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const statusEl = $("status");
+
+  // ---------- Idiomas ----------
+  const I18N = {
+    en: {
+      preview: "Preview", before: "Before", editedBadge: "Edited", looks: "Looks", auto: "Auto", reset: "Reset",
+      light: "Light", color: "Color", detail: "Detail", effects: "Effects",
+      exposure: "Exposure", contrast: "Contrast", highlights: "Highlights", shadows: "Shadows", whites: "Whites", blacks: "Blacks",
+      temperature: "Temperature", tint: "Tint", vibrance: "Vibrance", saturation: "Saturation", hue: "Hue",
+      sharpness: "Sharpness", clarity: "Clarity", vignette: "Vignette", grain: "Grain", fade: "Fade",
+      lOriginal: "Original", lVivid: "Vivid", lWarm: "Warm", lCool: "Cool", lMono: "Mono", lNoir: "Noir",
+      lVintage: "Vintage", lMatte: "Matte", lDrama: "Drama", lSoft: "Soft", lCinema: "Cinema", lFresh: "Fresh",
+      mode: "Apply as", modeEdit: "Editable", modeReplace: "Flatten",
+      hintEdit: "Keeps the original inside the layer. Reopen the plugin anytime to readjust or restore it.",
+      hintReplace: "Replaces the image with the adjusted version and removes the original (Ctrl+Z to undo).",
+      empty: "Select one or more layers with an image fill.", loading: "Loading image…",
+      applyOne: "Apply adjustments", applyMany: "Apply to {n} layers",
+      copy: "Copy settings", paste: "Paste settings", restore: "Restore original",
+      copied: "Settings copied.", progress: "Applying {i} of {n}…", done: "Done: {n} layer(s) updated.",
+      restored: "Original restored on {n} layer(s).", dblHint: "Double-click a slider to reset it.",
+      error: "Error: ", NOT_FOUND: "Layer not found", NO_IMAGE: "This layer has no image fill",
+      NO_WEBGL: "Your browser doesn't support WebGL, required by this plugin.",
+    },
+    pt: {
+      preview: "Prévia", before: "Antes", editedBadge: "Editada", looks: "Filtros", auto: "Automático", reset: "Zerar",
+      light: "Luz", color: "Cor", detail: "Detalhes", effects: "Efeitos",
+      exposure: "Exposição", contrast: "Contraste", highlights: "Realces", shadows: "Sombras", whites: "Brancos", blacks: "Pretos",
+      temperature: "Temperatura", tint: "Matiz", vibrance: "Vibração", saturation: "Saturação", hue: "Tom",
+      sharpness: "Nitidez", clarity: "Clareza", vignette: "Vinheta", grain: "Granulação", fade: "Desbotar",
+      lOriginal: "Original", lVivid: "Vívido", lWarm: "Quente", lCool: "Frio", lMono: "P&B", lNoir: "Noir",
+      lVintage: "Vintage", lMatte: "Fosco", lDrama: "Drama", lSoft: "Suave", lCinema: "Cinema", lFresh: "Fresco",
+      mode: "Aplicar como", modeEdit: "Editável", modeReplace: "Achatar",
+      hintEdit: "Mantém a original dentro da camada. Reabra o plugin quando quiser para reajustar ou restaurar.",
+      hintReplace: "Troca a imagem pela versão ajustada e remove a original (Ctrl+Z para desfazer).",
+      empty: "Selecione uma ou mais camadas com preenchimento de imagem.", loading: "Carregando imagem…",
+      applyOne: "Aplicar ajustes", applyMany: "Aplicar em {n} camadas",
+      copy: "Copiar ajustes", paste: "Colar ajustes", restore: "Restaurar original",
+      copied: "Ajustes copiados.", progress: "Aplicando {i} de {n}…", done: "Pronto: {n} camada(s) atualizada(s).",
+      restored: "Original restaurada em {n} camada(s).", dblHint: "Clique duas vezes num controle para zerá-lo.",
+      error: "Erro: ", NOT_FOUND: "Camada não encontrada", NO_IMAGE: "Esta camada não tem preenchimento de imagem",
+      NO_WEBGL: "Seu navegador não suporta WebGL, necessário para este plugin.",
+    },
+    es: {
+      preview: "Vista previa", before: "Antes", editedBadge: "Editada", looks: "Filtros", auto: "Automático", reset: "Restablecer",
+      light: "Luz", color: "Color", detail: "Detalle", effects: "Efectos",
+      exposure: "Exposición", contrast: "Contraste", highlights: "Iluminaciones", shadows: "Sombras", whites: "Blancos", blacks: "Negros",
+      temperature: "Temperatura", tint: "Matiz", vibrance: "Intensidad", saturation: "Saturación", hue: "Tono",
+      sharpness: "Nitidez", clarity: "Claridad", vignette: "Viñeta", grain: "Grano", fade: "Desvanecer",
+      lOriginal: "Original", lVivid: "Vívido", lWarm: "Cálido", lCool: "Frío", lMono: "B&N", lNoir: "Noir",
+      lVintage: "Vintage", lMatte: "Mate", lDrama: "Drama", lSoft: "Suave", lCinema: "Cine", lFresh: "Fresco",
+      mode: "Aplicar como", modeEdit: "Editable", modeReplace: "Acoplar",
+      hintEdit: "Conserva la original dentro de la capa. Vuelve a abrir el plugin para reajustar o restaurar.",
+      hintReplace: "Cambia la imagen por la versión ajustada y elimina la original (Ctrl+Z para deshacer).",
+      empty: "Selecciona una o más capas con relleno de imagen.", loading: "Cargando imagen…",
+      applyOne: "Aplicar ajustes", applyMany: "Aplicar a {n} capas",
+      copy: "Copiar ajustes", paste: "Pegar ajustes", restore: "Restaurar original",
+      copied: "Ajustes copiados.", progress: "Aplicando {i} de {n}…", done: "Listo: {n} capa(s) actualizada(s).",
+      restored: "Original restaurada en {n} capa(s).", dblHint: "Doble clic en un control para restablecerlo.",
+      error: "Error: ", NOT_FOUND: "Capa no encontrada", NO_IMAGE: "Esta capa no tiene relleno de imagen",
+      NO_WEBGL: "Tu navegador no soporta WebGL, necesario para este plugin.",
+    },
+  };
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  };
+  function detectLang() {
+    const q = new URLSearchParams(location.search).get("lang");
+    if (q && I18N[q]) return q;
+    const saved = store.get("imagetune-lang");
+    if (saved && I18N[saved]) return saved;
+    const nav = (navigator.language || "en").slice(0, 2).toLowerCase();
+    return I18N[nav] ? nav : "en";
+  }
+  let lang = detectLang();
+  const t = (key, vars) => String(I18N[lang][key] ?? I18N.en[key] ?? key)
+    .replace(/\{(\w+)\}/g, (_, k) => (vars && vars[k] != null ? vars[k] : ""));
+  const errText = (err) => { const m = err && err.message ? err.message : String(err); return I18N.en[m] ? t(m) : m; };
+
+  // ---------- Controles ----------
+  const GROUPS = [
+    { key: "light", open: true, items: [
+      ["exposure", -100, 100], ["contrast", -100, 100], ["highlights", -100, 100],
+      ["shadows", -100, 100], ["whites", -100, 100], ["blacks", -100, 100]] },
+    { key: "color", open: true, items: [
+      ["temperature", -100, 100], ["tint", -100, 100], ["vibrance", -100, 100],
+      ["saturation", -100, 100], ["hue", -180, 180]] },
+    { key: "detail", open: false, items: [["sharpness", 0, 100], ["clarity", -100, 100]] },
+    { key: "effects", open: false, items: [["vignette", -100, 100], ["grain", 0, 100], ["fade", 0, 100]] },
+  ];
+  const KEYS = GROUPS.flatMap((g) => g.items.map((i) => i[0]));
+  const neutral = () => Object.fromEntries(KEYS.map((k) => [k, 0]));
+
+  const LOOKS = [
+    ["lOriginal", {}],
+    ["lVivid", { contrast: 15, vibrance: 40, saturation: 10, clarity: 12 }],
+    ["lWarm", { temperature: 35, tint: 6, vibrance: 12, highlights: -8 }],
+    ["lCool", { temperature: -32, tint: -4, contrast: 6 }],
+    ["lFresh", { exposure: 8, temperature: -10, vibrance: 30, shadows: 18, highlights: -12 }],
+    ["lMono", { saturation: -100, contrast: 18, clarity: 15 }],
+    ["lNoir", { saturation: -100, contrast: 50, blacks: -25, clarity: 30, vignette: 40, grain: 18 }],
+    ["lVintage", { temperature: 22, fade: 38, saturation: -28, vignette: 28, grain: 22, contrast: -8 }],
+    ["lMatte", { fade: 45, contrast: -12, shadows: 22, saturation: -10 }],
+    ["lDrama", { contrast: 35, clarity: 45, highlights: -35, shadows: 25, vibrance: -10, vignette: 32 }],
+    ["lSoft", { contrast: -18, highlights: -22, shadows: 18, clarity: -25, exposure: 6 }],
+    ["lCinema", { temperature: 8, tint: -6, contrast: 22, highlights: -18, blacks: -12, saturation: -12, vignette: 18, hue: -4 }],
+  ];
+
+  const state = {
+    settings: neutral(), look: "lOriginal", mode: "edit",
+    images: [], source: null, // { id, bmp, w, h, mtype, luma }
+    before: false,
+  };
+
+  // ---------- Tema ----------
+  const setTheme = (th) => document.documentElement.setAttribute("data-theme", th === "light" ? "light" : "dark");
+  setTheme(new URLSearchParams(location.search).get("theme"));
+
+  // ---------- Comunicação ----------
+  const pending = new Map();
+  let seq = 0;
+  const send = (msg) => parent.postMessage(msg, "*");
+  function request(type, data) {
+    const reqId = ++seq;
+    return new Promise((resolve, reject) => {
+      pending.set(reqId, { resolve, reject });
+      send({ type, reqId, ...data });
+    });
+  }
+  window.addEventListener("message", (e) => {
+    if (e.source !== window.parent) return;
+    const msg = e.data;
+    if (!msg || typeof msg !== "object") return;
+    if (msg.type === "theme") setTheme(msg.theme);
+    else if (msg.type === "selection") onSelection(msg.images || []);
+    else if (msg.type === "reply") {
+      const p = pending.get(msg.reqId);
+      if (!p) return;
+      pending.delete(msg.reqId);
+      msg.error ? p.reject(new Error(msg.error)) : p.resolve(msg);
+    }
+  });
+
+  // ---------- Motor WebGL ----------
+  const VERT = `
+    attribute vec2 a_pos; varying vec2 v_uv;
+    void main() { v_uv = vec2(a_pos.x * 0.5 + 0.5, 0.5 - a_pos.y * 0.5); gl_Position = vec4(a_pos, 0.0, 1.0); }`;
+  const FRAG = `
+    precision highp float;
+    varying vec2 v_uv;
+    uniform sampler2D u_img;
+    uniform vec2 u_texel, u_size;
+    uniform float u_exposure, u_contrast, u_highlights, u_shadows, u_whites, u_blacks;
+    uniform float u_temp, u_tint, u_vibrance, u_saturation, u_hue;
+    uniform float u_sharp, u_clarity, u_radius, u_vignette, u_grain, u_fade, u_seed;
+
+    float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+    float hash(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
+
+    void main() {
+      vec4 src = texture2D(u_img, v_uv);
+      vec3 c = src.rgb;
+
+      // Nitidez: máscara de nitidez com os 4 vizinhos.
+      if (u_sharp > 0.0) {
+        vec3 b = (texture2D(u_img, v_uv + vec2(u_texel.x, 0.0)).rgb + texture2D(u_img, v_uv - vec2(u_texel.x, 0.0)).rgb +
+                  texture2D(u_img, v_uv + vec2(0.0, u_texel.y)).rgb + texture2D(u_img, v_uv - vec2(0.0, u_texel.y)).rgb) * 0.25;
+        c += (c - b) * u_sharp * 2.5;
+      }
+      // Clareza: contraste local nos meios-tons, comparando com uma média em raio maior.
+      if (u_clarity != 0.0) {
+        vec3 acc = vec3(0.0);
+        for (int i = 0; i < 12; i++) {
+          float a = float(i) * 0.5235988;
+          vec2 o = vec2(cos(a), sin(a)) * u_radius * u_texel;
+          acc += texture2D(u_img, v_uv + o).rgb + texture2D(u_img, v_uv + o * 0.45).rgb;
+        }
+        float l = luma(c);
+        float w = 1.0 - pow(abs(2.0 * l - 1.0), 2.0);
+        c += (l - luma(acc / 24.0)) * u_clarity * 1.6 * w;
+      }
+      c = clamp(c, 0.0, 1.0);
+
+      // Exposição e balanço de branco em luz linear.
+      vec3 lin = pow(c, vec3(2.2)) * exp2(u_exposure);
+      lin *= vec3(1.0 + 0.2 * u_temp + 0.06 * u_tint, 1.0 - 0.14 * u_tint, 1.0 - 0.2 * u_temp + 0.06 * u_tint);
+      c = pow(max(lin, vec3(0.0)), vec3(1.0 / 2.2));
+
+      // Tons: cada controle age só na sua faixa de luminosidade.
+      float L0 = luma(c), L = L0;
+      L += u_blacks * 0.16 * (1.0 - smoothstep(0.0, 0.32, L));
+      L += u_shadows * 0.3 * (1.0 - smoothstep(0.05, 0.6, L)) * smoothstep(-0.05, 0.18, L);
+      L += u_highlights * 0.3 * smoothstep(0.38, 0.95, L) * (1.0 - 0.4 * smoothstep(0.95, 1.2, L));
+      L += u_whites * 0.16 * smoothstep(0.62, 1.05, L);
+      float Lc = clamp(L, 0.0, 1.0);
+      L = u_contrast >= 0.0 ? mix(L, Lc * Lc * (3.0 - 2.0 * Lc), u_contrast) : mix(L, 0.5, -u_contrast * 0.5);
+      vec3 byRatio = L0 > 0.002 ? c * (L / L0) : vec3(L);
+      c = mix(byRatio, c + (L - L0), 0.4);
+
+      // Saturação e vibração (a vibração mexe mais nas cores pouco saturadas).
+      float Ls = luma(c);
+      float sat = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
+      c = mix(vec3(Ls), c, max(0.0, 1.0 + u_saturation + u_vibrance * (1.0 - clamp(sat, 0.0, 1.0)) * 1.2));
+
+      // Tom: rotação no espaço YIQ.
+      if (u_hue != 0.0) {
+        float Y = dot(c, vec3(0.299, 0.587, 0.114));
+        float I = dot(c, vec3(0.596, -0.274, -0.322));
+        float Q = dot(c, vec3(0.211, -0.523, 0.312));
+        float cs = cos(u_hue), sn = sin(u_hue);
+        float I2 = I * cs - Q * sn, Q2 = I * sn + Q * cs;
+        c = vec3(Y + 0.956 * I2 + 0.621 * Q2, Y - 0.272 * I2 - 0.647 * Q2, Y - 1.106 * I2 + 1.703 * Q2);
+      }
+
+      // Desbotar: levanta os pretos e baixa os brancos.
+      c = mix(c, c * 0.78 + 0.13, u_fade);
+
+      // Vinheta: positivo escurece as bordas, negativo clareia.
+      vec2 asp = u_size / max(u_size.x, u_size.y);
+      float d = length((v_uv - 0.5) * asp) / length(asp * 0.5);
+      float vw = smoothstep(0.35, 1.05, d);
+      c = u_vignette >= 0.0 ? c * (1.0 - u_vignette * vw * 0.85) : mix(c, vec3(1.0), -u_vignette * vw * 0.75);
+
+      // Granulação por pixel, mais visível nos tons médios e escuros.
+      if (u_grain > 0.0) {
+        float n = hash(floor(v_uv * u_size) + u_seed) - 0.5;
+        c += n * u_grain * 0.24 * (1.0 - 0.5 * luma(c));
+      }
+
+      gl_FragColor = vec4(clamp(c, 0.0, 1.0), src.a);
+    }`;
+
+  class Renderer {
+    constructor(canvas) {
+      this.canvas = canvas;
+      const gl = canvas.getContext("webgl", { premultipliedAlpha: false, preserveDrawingBuffer: true, alpha: true, antialias: false });
+      if (!gl) throw new Error("NO_WEBGL");
+      this.gl = gl;
+      const sh = (type, src) => {
+        const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+        return s;
+      };
+      const p = gl.createProgram();
+      gl.attachShader(p, sh(gl.VERTEX_SHADER, VERT)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FRAG));
+      gl.linkProgram(p);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+      gl.useProgram(p);
+      this.u = {};
+      for (const n of ["u_img", "u_texel", "u_size", "u_exposure", "u_contrast", "u_highlights", "u_shadows", "u_whites",
+        "u_blacks", "u_temp", "u_tint", "u_vibrance", "u_saturation", "u_hue", "u_sharp", "u_clarity", "u_radius",
+        "u_vignette", "u_grain", "u_fade", "u_seed"]) this.u[n] = gl.getUniformLocation(p, n);
+      const buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+      const loc = gl.getAttribLocation(p, "a_pos");
+      gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+      this.tex = gl.createTexture();
+      this.maxSide = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE), 8192);
+    }
+    setImage(source, w, h) {
+      const gl = this.gl;
+      this.canvas.width = w; this.canvas.height = h; this.w = w; this.h = h;
+      gl.viewport(0, 0, w, h);
+      gl.bindTexture(gl.TEXTURE_2D, this.tex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); // a inversão é feita no shader (ImageBitmap ignora esta opção)
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+      for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
+        [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    }
+    render(s) {
+      const gl = this.gl, u = this.u;
+      gl.uniform1i(u.u_img, 0);
+      gl.uniform2f(u.u_texel, 1 / this.w, 1 / this.h);
+      gl.uniform2f(u.u_size, this.w, this.h);
+      gl.uniform1f(u.u_exposure, s.exposure / 50);
+      gl.uniform1f(u.u_contrast, s.contrast / 100);
+      gl.uniform1f(u.u_highlights, s.highlights / 100);
+      gl.uniform1f(u.u_shadows, s.shadows / 100);
+      gl.uniform1f(u.u_whites, s.whites / 100);
+      gl.uniform1f(u.u_blacks, s.blacks / 100);
+      gl.uniform1f(u.u_temp, s.temperature / 100);
+      gl.uniform1f(u.u_tint, s.tint / 100);
+      gl.uniform1f(u.u_vibrance, s.vibrance / 100);
+      gl.uniform1f(u.u_saturation, s.saturation / 100);
+      gl.uniform1f(u.u_hue, s.hue * Math.PI / 180);
+      gl.uniform1f(u.u_sharp, s.sharpness / 100);
+      gl.uniform1f(u.u_clarity, s.clarity / 100);
+      gl.uniform1f(u.u_radius, Math.max(2, Math.max(this.w, this.h) * 0.008));
+      gl.uniform1f(u.u_vignette, s.vignette / 100);
+      gl.uniform1f(u.u_grain, s.grain / 100);
+      gl.uniform1f(u.u_fade, s.fade / 100);
+      gl.uniform1f(u.u_seed, 17.0);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+    pixels() {
+      const gl = this.gl, px = new Uint8Array(this.w * this.h * 4);
+      gl.readPixels(0, 0, this.w, this.h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      return px;
+    }
+  }
+
+  let view, offscreen, thumbs;
+  try {
+    view = new Renderer($("view"));
+    offscreen = new Renderer(document.createElement("canvas"));
+    thumbs = new Renderer(document.createElement("canvas"));
+  } catch (err) {
+    $("empty").textContent = t("error") + errText(err);
+  }
+
+  const PREVIEW_SIDE = 640, THUMB_SIDE = 120;
+  const fit = (w, h, max) => { const s = Math.min(1, max / Math.max(w, h)); return [Math.max(1, Math.round(w * s)), Math.max(1, Math.round(h * s))]; };
+  async function bitmap(blob, w, h) {
+    const opts = { premultiplyAlpha: "none", colorSpaceConversion: "none" };
+    if (w && h) Object.assign(opts, { resizeWidth: w, resizeHeight: h, resizeQuality: "high" });
+    return createImageBitmap(blob, opts);
+  }
+
+  // ---------- Prévia e histograma ----------
+  let raf = 0;
+  function draw() {
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => {
+      if (!state.source || !view) return;
+      view.render(state.before ? neutral() : state.settings);
+      drawHistogram(view.pixels());
+    });
+  }
+
+  function drawHistogram(px) {
+    const cv = $("histo"), g = cv.getContext("2d");
+    const W = cv.width, H = cv.height;
+    const bins = [new Uint32Array(64), new Uint32Array(64), new Uint32Array(64)];
+    for (let i = 0; i < px.length; i += 16) {
+      if (px[i + 3] < 8) continue;
+      bins[0][px[i] >> 2]++; bins[1][px[i + 1] >> 2]++; bins[2][px[i + 2] >> 2]++;
+    }
+    let max = 1;
+    for (const b of bins) for (let i = 1; i < 63; i++) max = Math.max(max, b[i]);
+    g.clearRect(0, 0, W, H);
+    g.globalCompositeOperation = "lighter";
+    const cols = ["rgba(255,70,70,.55)", "rgba(70,220,90,.55)", "rgba(80,120,255,.6)"];
+    bins.forEach((b, ci) => {
+      g.fillStyle = cols[ci];
+      g.beginPath(); g.moveTo(0, H);
+      for (let i = 0; i < 64; i++) g.lineTo((i / 63) * W, H - Math.min(1, b[i] / max) * (H - 4));
+      g.lineTo(W, H); g.closePath(); g.fill();
+    });
+    g.globalCompositeOperation = "source-over";
+  }
+
+  function drawThumbs() {
+    if (!state.source || !thumbs) return;
+    document.querySelectorAll(".look").forEach((btn, i) => {
+      thumbs.render({ ...neutral(), ...LOOKS[i][1] });
+      const c = btn.querySelector("canvas");
+      const g = c.getContext("2d");
+      g.clearRect(0, 0, c.width, c.height);
+      const s = Math.max(c.width / thumbs.w, c.height / thumbs.h);
+      const w = thumbs.w * s, h = thumbs.h * s;
+      g.drawImage(thumbs.canvas, (c.width - w) / 2, (c.height - h) / 2, w, h);
+    });
+  }
+
+  // ---------- Seleção ----------
+  let loadToken = 0;
+  async function onSelection(images) {
+    state.images = images;
+    renderSelection();
+    const first = images[0];
+    if (!first) { state.source = null; showPreview(); return; }
+    if (state.source && state.source.id === first.id) return;
+    const token = ++loadToken;
+    state.source = null; showPreview();
+    $("empty").textContent = t("loading"); $("empty").style.display = "block";
+    try {
+      const res = await request("get-image", { shapeId: first.id });
+      const blob = new Blob([res.bytes], { type: res.mtype });
+      const full = await bitmap(blob);
+      const [pw, ph] = fit(full.width, full.height, PREVIEW_SIDE);
+      const [tw, th] = fit(full.width, full.height, THUMB_SIDE);
+      const [pv, tb] = await Promise.all([bitmap(blob, pw, ph), bitmap(blob, tw, th)]);
+      if (token !== loadToken) return;
+      state.source = { id: first.id, w: full.width, h: full.height, mtype: res.mtype, preview: pv };
+      full.close && full.close();
+      view && view.setImage(pv, pw, ph);
+      thumbs && thumbs.setImage(tb, tw, th);
+      setSettings(res.settings ? { ...neutral(), ...res.settings } : neutral(), res.settings ? null : "lOriginal");
+      showPreview(); drawThumbs(); renderSelection();
+    } catch (err) {
+      if (token !== loadToken) return;
+      state.source = null;
+      $("empty").textContent = t("error") + errText(err);
+    }
+  }
+
+  function showPreview() {
+    const has = !!state.source && !!view;
+    $("view").style.display = has ? "block" : "none";
+    $("before").hidden = !has;
+    $("empty").style.display = has ? "none" : "block";
+    if (!state.images.length) $("empty").textContent = t("empty");
+    if (!has) $("histo").getContext("2d").clearRect(0, 0, 592, 88);
+    draw();
+  }
+
+  function renderSelection() {
+    const n = state.images.length;
+    const edited = state.images.filter((i) => i.edited).length;
+    $("count").style.display = n > 1 ? "block" : "none";
+    $("count").textContent = `+${n - 1}`;
+    $("badge").style.display = state.images[0] && state.images[0].edited && state.source ? "block" : "none";
+    $("apply").disabled = !n || !view;
+    $("apply").textContent = n > 1 ? t("applyMany", { n }) : t("applyOne");
+    $("restore").disabled = !edited;
+    $("auto").disabled = !state.source;
+    $("reset").disabled = !state.source;
+    $("copy").disabled = !state.source;
+    $("paste").disabled = !state.source || !store.get("imagetune-clip");
+  }
+
+  // ---------- Sliders ----------
+  $("groups").innerHTML = GROUPS.map((g) => `
+    <details ${g.open ? "open" : ""}><summary><h2 data-i18n="${g.key}"></h2></summary>
+      ${g.items.map(([k, min, max]) => `
+        <div class="slider" data-k="${k}" title="">
+          <label for="s-${k}" data-i18n="${k}"></label>
+          <input type="range" id="s-${k}" min="${min}" max="${max}" value="0" step="1">
+          <output id="o-${k}">0</output>
+        </div>`).join("")}
+    </details>`).join("");
+
+  function syncSliders() {
+    for (const k of KEYS) {
+      const v = state.settings[k];
+      $("s-" + k).value = v;
+      $("o-" + k).textContent = v > 0 && k !== "sharpness" && k !== "grain" && k !== "fade" ? "+" + v : String(v);
+      $("s-" + k).closest(".slider").classList.toggle("changed", v !== 0);
+    }
+    document.querySelectorAll(".look").forEach((b) => b.classList.toggle("on", b.dataset.look === state.look));
+  }
+
+  function setSettings(s, look) {
+    state.settings = s; state.look = look;
+    syncSliders(); draw();
+  }
+
+  $("groups").addEventListener("input", (e) => {
+    const k = e.target.id && e.target.id.startsWith("s-") ? e.target.id.slice(2) : null;
+    if (!k) return;
+    state.settings[k] = Number(e.target.value);
+    state.look = null;
+    syncSliders(); draw();
+  });
+  $("groups").addEventListener("dblclick", (e) => {
+    const row = e.target.closest(".slider");
+    if (!row) return;
+    state.settings[row.dataset.k] = 0; state.look = null;
+    syncSliders(); draw();
+  });
+
+  $("looks").innerHTML = LOOKS.map(([key]) =>
+    `<button class="look" data-look="${key}"><canvas width="116" height="84"></canvas><span data-i18n="${key}"></span></button>`).join("");
+  $("looks").addEventListener("click", (e) => {
+    const b = e.target.closest(".look");
+    if (!b || !state.source) return;
+    const look = LOOKS.find((l) => l[0] === b.dataset.look);
+    setSettings({ ...neutral(), ...look[1] }, look[0]);
+  });
+
+  $("reset").addEventListener("click", () => setSettings(neutral(), "lOriginal"));
+
+  // Automático: corrige exposição e pontos de preto/branco a partir do histograma original.
+  $("auto").addEventListener("click", () => {
+    if (!state.source || !view) return;
+    view.render(neutral());
+    const px = view.pixels();
+    const hist = new Uint32Array(256);
+    let n = 0, sum = 0;
+    for (let i = 0; i < px.length; i += 4) {
+      if (px[i + 3] < 8) continue;
+      const l = Math.round(0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]);
+      hist[l]++; n++; sum += l;
+    }
+    if (!n) return;
+    const pct = (p) => { let acc = 0; for (let i = 0; i < 256; i++) { acc += hist[i]; if (acc >= n * p) return i / 255; } return 1; };
+    const lo = pct(0.005), hi = pct(0.995), mean = sum / n / 255;
+    const clamp = (v, a, b) => Math.round(Math.max(a, Math.min(b, v)));
+    const s = neutral();
+    s.exposure = clamp(2.2 * Math.log2(0.46 / Math.max(mean, 0.02)) * 50 * 0.8, -100, 100);
+    s.blacks = lo > 0.03 ? clamp(-(lo - 0.015) * 320, -60, 0) : 0;
+    s.whites = hi < 0.96 ? clamp((0.97 - hi) * 260, 0, 60) : 0;
+    s.highlights = hi >= 0.995 ? -20 : 0;
+    s.shadows = mean < 0.38 ? 18 : 0;
+    s.contrast = 8; s.vibrance = 15;
+    setSettings(s, null);
+  });
+
+  // Antes/depois: segure o botão (ou a tecla \) para ver a original.
+  const hold = (on) => { state.before = on; $("before").classList.toggle("on", on); draw(); };
+  $("before").addEventListener("pointerdown", (e) => { e.preventDefault(); hold(true); });
+  ["pointerup", "pointerleave", "pointercancel"].forEach((ev) => $("before").addEventListener(ev, () => state.before && hold(false)));
+  window.addEventListener("keydown", (e) => { if (e.key === "\\" && !state.before) hold(true); });
+  window.addEventListener("keyup", (e) => { if (e.key === "\\") hold(false); });
+
+  $("copy").addEventListener("click", () => {
+    store.set("imagetune-clip", JSON.stringify(state.settings));
+    statusEl.className = ""; statusEl.textContent = t("copied"); renderSelection();
+  });
+  $("paste").addEventListener("click", () => {
+    try { setSettings({ ...neutral(), ...JSON.parse(store.get("imagetune-clip") || "{}") }, null); } catch (e) {}
+  });
+
+  $("mode").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-m]");
+    if (!b) return;
+    state.mode = b.dataset.m;
+    document.querySelectorAll("#mode button").forEach((x) => x.classList.toggle("on", x === b));
+    $("modeHint").textContent = t(state.mode === "edit" ? "hintEdit" : "hintReplace");
+  });
+
+  // ---------- Aplicar em resolução total ----------
+  async function processShape(img, settings) {
+    const res = await request("get-image", { shapeId: img.id });
+    const blob = new Blob([res.bytes], { type: res.mtype });
+    let bmp = await bitmap(blob);
+    if (Math.max(bmp.width, bmp.height) > offscreen.maxSide) {
+      const [w, h] = fit(bmp.width, bmp.height, offscreen.maxSide);
+      bmp.close && bmp.close();
+      bmp = await bitmap(blob, w, h);
+    }
+    offscreen.setImage(bmp, bmp.width, bmp.height);
+    bmp.close && bmp.close();
+    offscreen.render(settings);
+    const type = res.mtype === "image/jpeg" ? "image/jpeg" : "image/png";
+    const out = await new Promise((r) => offscreen.canvas.toBlob(r, type, 0.93));
+    const bytes = new Uint8Array(await out.arrayBuffer());
+    await request("set-image", { shapeId: img.id, bytes, mtype: type, mode: state.mode, name: `${img.name} tuned`, settings });
+  }
+
+  function busy(on) {
+    document.querySelectorAll("button, input").forEach((el) => { if (el.id !== "before") el.disabled = on; });
+    if (!on) renderSelection();
+  }
+
+  $("apply").addEventListener("click", async () => {
+    const list = state.images.slice();
+    if (!list.length) return;
+    const settings = { ...state.settings };
+    busy(true); statusEl.className = "";
+    try {
+      for (let i = 0; i < list.length; i++) {
+        statusEl.textContent = t("progress", { i: i + 1, n: list.length });
+        await processShape(list[i], settings);
+      }
+      statusEl.textContent = t("done", { n: list.length });
+      await request("refresh").catch(() => {});
+    } catch (err) {
+      statusEl.className = "err"; statusEl.textContent = t("error") + errText(err);
+    } finally { busy(false); }
+  });
+
+  $("restore").addEventListener("click", async () => {
+    const list = state.images.filter((i) => i.edited);
+    busy(true); statusEl.className = "";
+    try {
+      for (const img of list) await request("restore", { shapeId: img.id });
+      statusEl.textContent = t("restored", { n: list.length });
+      state.source = null;
+      await request("refresh").catch(() => {});
+    } catch (err) {
+      statusEl.className = "err"; statusEl.textContent = t("error") + errText(err);
+    } finally { busy(false); }
+  });
+
+  function applyLang() {
+    document.documentElement.lang = lang === "pt" ? "pt-BR" : lang;
+    $("lang").value = lang;
+    document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll(".slider").forEach((el) => { el.title = t("dblHint"); });
+    $("modeHint").textContent = t(state.mode === "edit" ? "hintEdit" : "hintReplace");
+    if (!state.source) $("empty").textContent = view ? t("empty") : t("error") + t("NO_WEBGL");
+    renderSelection();
+  }
+  $("lang").addEventListener("change", (e) => {
+    lang = e.target.value; store.set("imagetune-lang", lang); statusEl.textContent = ""; applyLang();
+  });
+
+  syncSliders();
+  applyLang();
+  showPreview();
+  send({ type: "ready" });
+})();
+</script>
+</body>
+</html>
